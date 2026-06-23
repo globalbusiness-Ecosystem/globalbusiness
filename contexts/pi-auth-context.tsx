@@ -252,11 +252,9 @@ export function PiAuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("SDKLite initialization failed:", err);
       setHasError(true);
-      setAuthMessage(
-        err instanceof Error
-          ? err.message
-          : "Authentication failed. Please try again.",
-      );
+      const debugInfo = err instanceof Error
+        ?         : String(err);
+      setAuthMessage(\);
     }
   };
 
