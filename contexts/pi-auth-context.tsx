@@ -20,18 +20,15 @@ function isInIframe(): boolean {
   try {
     return window.self !== window.top;
   } catch (error) {
-    // Cross-origin access may throw when in an iframe
     if (
       error instanceof DOMException &&
       (error.name === 'SecurityError' || error.code === DOMException.SECURITY_ERR || error.code === 18)
     ) {
       return true;
     }
-    // Firefox may throw generic Permission denied errors
     if (error instanceof Error && /Permission denied/i.test(error.message)) {
       return true;
     }
-
     throw error;
   }
 }
@@ -47,14 +44,7 @@ function parseJsonSafely(value: any): any {
   return typeof value === 'object' && value !== null ? value : null;
 }
 
-/**
- * Requests authentication credentials from the parent window (App Studio) via postMessage.
- * Returns null if not in iframe, timeout, or missing token (non-fatal check).
- *
- * @returns {Promise<{accessToken: string, appId: string}|null>} Resolves with credentials or null
- */
 function requestParentCredentials(): Promise<{ accessToken: string; appId: string | null } | null> {
-  // Early return if not in an iframe
   if (!isInIframe()) {
     return Promise.resolve(null);
   }
@@ -65,7 +55,6 @@ function requestParentCredentials(): Promise<{ accessToken: string; appId: strin
   return new Promise((resolve) => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    // Cleanup function to remove listener and clear timeout
     const cleanup = (listener: (event: MessageEvent) => void) => {
       window.removeEventListener('message', listener);
       if (timeoutId !== null) {
@@ -74,12 +63,10 @@ function requestParentCredentials(): Promise<{ accessToken: string; appId: strin
     };
 
     const messageListener = (event: MessageEvent) => {
-      // Security: only accept messages from parent window
       if (event.source !== window.parent) {
         return;
       }
 
-      // Validate message type and request ID match
       const data = parseJsonSafely(event.data);
       if (!data || data.type !== COMMUNICATION_REQUEST_TYPE || data.id !== requestId) {
         return;
@@ -87,25 +74,20 @@ function requestParentCredentials(): Promise<{ accessToken: string; appId: strin
 
       cleanup(messageListener);
 
-      // Extract credentials from response payload
       const payload = typeof data.payload === 'object' && data.payload !== null ? data.payload : {};
       const accessToken = typeof payload.accessToken === 'string' ? payload.accessToken : null;
       const appId = typeof payload.appId === 'string' ? payload.appId : null;
 
-      // Return credentials or null if missing token
       resolve(accessToken ? { accessToken, appId } : null);
     };
 
-    // Set timeout handler (resolve with null on timeout)
     timeoutId = setTimeout(() => {
       cleanup(messageListener);
       resolve(null);
     }, timeoutMs);
 
-    // Register listener before sending request to avoid race condition
     window.addEventListener('message', messageListener);
 
-    // Send request to parent window to get credentials
     window.parent.postMessage(
       JSON.stringify({
         type: COMMUNICATION_REQUEST_TYPE,
@@ -210,9 +192,6 @@ export function PiAuthProvider({ children }: { children: ReactNode }) {
     setHasError(false);
     setRestoredPurchases(null);
     try {
-      // Probe for parent credentials (App Studio iframe environment).
-      // When running inside App Studio's restore-preview iframe, SDKLite.login()
-      // cannot complete outside the Pi CDN wrapper and would hang indefinitely.
       const parentCredentials = await requestParentCredentials();
       if (parentCredentials) {
         setIsAuthenticated(true);
@@ -252,9 +231,9 @@ export function PiAuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("SDKLite initialization failed:", err);
       setHasError(true);
-      const debugInfo = err instanceof Error
-        ?         : String(err);
-      setAuthMessage(\);
+      const errorName = err instanceof Error ? err.name : "UnknownError";
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setAuthMessage("DEBUG -> " + errorName + ": " + errorMessage);
     }
   };
 
