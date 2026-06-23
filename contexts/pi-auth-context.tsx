@@ -209,7 +209,7 @@ export function PiAuthProvider({ children }: { children: ReactNode }) {
       await loadSDKLite();
 
       setAuthMessage("Initializing SDKLite...");
-      const sdkInstance = await window.SDKLite.init();
+      const sdkInstance = await window.SDKLite.init({ appId: "globalbusiness" });
       setAuthMessage("Logging in...");
       const success = await sdkInstance.login();
       if (!success) {
